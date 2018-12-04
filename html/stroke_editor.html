@@ -1,0 +1,83 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>笔画编辑器</title>
+<style type="text/css">
+@font-face{
+    font-family: 楷体_GB2312;
+    src: url('楷体_GB2312.ttf');
+}
+body{
+    font-family: 楷体_GB2312;
+    color:#555;
+}
+#canvas{
+    background:#eee; width:500px;height:500px;
+}
+select,div.op{
+    font-size: 16pt;
+    height: 500px;
+    margin: 0;
+    margin-left: 5pt;
+    margin-right: 5pt;
+    float:left;
+    display: block;
+}
+input{
+    font-family: 楷体_GB2312;
+    height: 30pt;
+    width: 30pt;
+    line-height: 30pt;
+    font-size: 20pt;
+    padding: 10pt;
+}
+div a{
+    line-height: 70pt;
+    font-size: 40pt;
+}
+</style>
+</head>
+<body>
+<select id="select" multiple="multiple"></select>
+<select id="select_strokes" multiple="multiple"></select>
+<select id="select_points" multiple="multiple"></select>
+<div class="op">
+    <div><button id="btn_replace">替换当前点</button></div>
+    <div><button id="btn_insert_before">在前边插入</button></div>
+    <div><button id="btn_insert_after">在后边插入</button></div>
+    <div><button id="btn_delete">删除当前点</button></div>
+</div>
+<canvas id="canvas" width="1000" height="1000"></canvas>
+<div class="in">
+    <input id="search" placeholder="" type="text" maxlength="1" />
+    <input style="width:auto;" id="choose_file" type='file'>
+    <button id="gen_map_bzip2">生成HashMap&lt;char,Vec&lt;Vec&lt;(u16, u16)&gt;&gt;(bzip2压缩)</button>
+    <button id="gen_vec">生成Vec&lt;(char, Vec&lt;(u16, u16))&gt;</button>
+    <a id="download" href="#" target="_blank" download="STROKES.data">下载</a>
+</div>
+
+
+<div>
+        <h1>Drag and drop characters</h1>
+        <div class="latest-drop"></div>
+        <div class="team-a-dropzone">
+            <h2>Team A</h2>
+            <div class="team-a-chars"></div>
+        </div>
+        <div class="team-b-dropzone">
+            <h2>Team B</h2>
+            <div class="team-b-chars"></div>
+        </div>
+    </div>
+    
+    <hr/>
+    
+    <div id="filesystem-dropzone" style="min-height: 200px; padding: 2em; border: 1px solid black;">
+        <strong>Drop anything here (e.g. files from your file system)</strong>
+    </div>
+
+<script src="rust-stroke-editor.js"></script>
+</body>
+</html>

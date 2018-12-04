@@ -1,0 +1,13 @@
+[package]
+name = "rust-stroke-editor"
+version = "0.1.0"
+authors = ["planet0104 <planet0104@gmail.com>"]
+
+[dependencies]
+stdweb = "*"
+bincode = "*"
+lazy_static = "1.2.0"
+bzip2 = "*"
+
+[profile.release]
+lto = true #bzip2必须加！
