@@ -52,32 +52,18 @@ div a{
 <canvas id="canvas" width="1000" height="1000"></canvas>
 <div class="in">
     <input id="search" placeholder="" type="text" maxlength="1" />
-    <input style="width:auto;" id="choose_file" type='file'>
     <button id="gen_map_bzip2">生成HashMap&lt;char,Vec&lt;Vec&lt;(u16, u16)&gt;&gt;(bzip2压缩)</button>
     <button id="gen_vec">生成Vec&lt;(char, Vec&lt;(u16, u16))&gt;</button>
-    <a id="download" href="#" target="_blank" download="STROKES.data">下载</a>
 </div>
+<script>
+    var Module = {};
+    Module["TOTAL_STACK"] = 5242880*10;
+    Module["TOTAL_MEMORY"] = 16777216*10;
 
-
-<div>
-        <h1>Drag and drop characters</h1>
-        <div class="latest-drop"></div>
-        <div class="team-a-dropzone">
-            <h2>Team A</h2>
-            <div class="team-a-chars"></div>
-        </div>
-        <div class="team-b-dropzone">
-            <h2>Team B</h2>
-            <div class="team-b-chars"></div>
-        </div>
-    </div>
-    
-    <hr/>
-    
-    <div id="filesystem-dropzone" style="min-height: 200px; padding: 2em; border: 1px solid black;">
-        <strong>Drop anything here (e.g. files from your file system)</strong>
-    </div>
-
+    window.onbeforeunload = function() {
+        return "确认要离开此页面吗？";
+    };
+</script>
 <script src="rust-stroke-editor.js"></script>
 </body>
 </html>

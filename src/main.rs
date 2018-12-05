@@ -15,9 +15,14 @@ use stdweb::web::event::*;
 use stdweb::web::html_element::*;
 use stdweb::web::*;
 
-static OLD_STROKE: &[u8] = include_bytes!("../STROKES.data");
-
 lazy_static! {
+    static ref XML_HTTP_REQUEST:XmlHttpRequest = {
+        js!(
+            var oReq = new XMLHttpRequest();
+            oReq.responseType = "arraybuffer";
+            return oReq
+        ).try_into().unwrap()
+    };
     //要插入的点
     static ref POINT: Mutex<Option<(f64, f64)>> = Mutex::new(None);
     static ref CONTEXT: CanvasRenderingContext2d = {
@@ -53,22 +58,8 @@ lazy_static! {
         .unwrap()
         .try_into()
         .unwrap();
-    static ref CHARS: Vec<char> = {
-        let strokes: Vec<(char, Vec<Vec<(u16, u16)>>)> = deserialize(&OLD_STROKE).unwrap();
-        let mut chars = vec![];
-        for (ch, _strokes) in strokes {
-            chars.push(ch);
-        }
-        chars
-    };
-    static ref STROKES: Mutex<HashMap<char, Vec<Vec<(u16, u16)>>>> = {
-        let strokes: Vec<(char, Vec<Vec<(u16, u16)>>)> = deserialize(&OLD_STROKE).unwrap();
-        let mut map = HashMap::new();
-        for (ch, strokes) in strokes {
-            map.insert(ch, strokes);
-        }
-        Mutex::new(map)
-    };
+    static ref CHARS: Mutex<Vec<char>> = Mutex::new(vec![]);
+    static ref STROKES: Mutex<HashMap<char, Vec<Vec<(u16, u16)>>>> = Mutex::new(HashMap::new());
 }
 
 fn draw_ch(ch: String, reset_strokes: bool, reset_points: bool) {
@@ -190,15 +181,14 @@ fn change_point(op:i32){
 fn gen_map_bzip2() {
     //序列化
     let encoded: Vec<u8> = serialize(&*STROKES.lock().unwrap()).unwrap();
-
     //压缩
     let mut zip = bzip2::write::BzEncoder::new(vec![], Compression::Best);
     zip.write_all(&encoded).unwrap();
     let data = zip.finish().unwrap();
     js!{
-        var file = new Blob(@{data}, {type: "application/octet-binary"});
-        var url = URL.createObjectURL(file);
-        document.getElementById("link").href = url;
+        var url = URL.createObjectURL(new File([new Uint8Array(@{data})], "gb2312.data"));
+        window.open(url);
+        window.URL.revokeObjectURL(url);
     }
 }
 
@@ -206,32 +196,51 @@ fn gen_map_bzip2() {
 fn gen_vec() {
     //序列化
     let mut vec:Vec<(char, Vec<Vec<(u16, u16)>>)> = vec![];
-    js!(console.log("0001"));
+
     let strokes = STROKES.lock().unwrap();
-    js!(console.log("0002"));
-    for ch in CHARS.iter(){
+    for ch in CHARS.lock().unwrap().iter(){
         vec.push((*ch, strokes.get(ch).unwrap().clone()));
     }
-    js!(console.log("0003"));
+
     let data: Vec<u8> = serialize(&vec).unwrap();
-    js!(console.log("0004", @{data}));
-    // js!{
-    //     var file = new Blob(@{data}, {type: "application/octet-binary"});
-    //     var url = URL.createObjectURL(file);
-    //     document.getElementById("link").href = url;
-    // }
+    js!{
+        //var blob = new Blob([new Uint8Array(@{data})], {type: "application/octet-stream"});
+        var url = URL.createObjectURL(new File([new Uint8Array(@{data})], "STROKES.data"));
+        window.open(url);
+        window.URL.revokeObjectURL(url);
+    }
 }
 
 fn main() {
-    /*
-        有问题的笔画:
-
-        1、虎字的最后一笔，差一点
-        2、
-    
-     */
-
     stdweb::initialize();
+
+    //加载文件
+    XML_HTTP_REQUEST.open("GET", "STROKES.data").unwrap();
+    XML_HTTP_REQUEST.add_event_listener(move |_event:ReadyStateChangeEvent|{
+        if XML_HTTP_REQUEST.ready_state() == XhrReadyState::Done {
+            let array_buffer:ArrayBuffer = XML_HTTP_REQUEST.raw_response().try_into().unwrap();
+            let data:Vec<u8> = Vec::from(array_buffer);
+            let strokes: Vec<(char, Vec<Vec<(u16, u16)>>)> = deserialize(&data).unwrap();
+            js!(console.log("字符个数", @{strokes.len() as i32}));
+            let mut chars = vec![];
+            for (ch, _strokes) in &strokes {
+                chars.push(*ch);
+            }
+            *CHARS.lock().unwrap() = chars;
+
+            let mut map = HashMap::new();
+            for (ch, strokes) in strokes {
+                map.insert(ch, strokes);
+            }
+            *STROKES.lock().unwrap() = map;
+            start();
+        }
+    });
+    XML_HTTP_REQUEST.send().unwrap();
+    stdweb::event_loop();
+}
+
+fn start(){
     //设置字体
     CONTEXT.set_font("800px 楷体_GB2312");
     CONTEXT.set_stroke_style_color("#000");
@@ -304,15 +313,16 @@ fn main() {
         gen_vec();
     });
 
-    document()
-    .get_element_by_id("choose_file")
-    .unwrap()
-    .add_event_listener(|event: DataTransfer| {
-        js!(console.log(@{event.files()}));
-    });
+    // document()
+    // .get_element_by_id("choose_file")
+    // .unwrap()
+    // .add_event_listener(|event: DataTransfer| {
+    //     js!(console.log(@{event.files()}));
+    // });
 
     //添加所有字符
-    for ch in CHARS.iter() {
+    let chars = CHARS.lock().unwrap();
+    for ch in chars.iter() {
         let option = document().create_element("option").unwrap();
         option.set_text_content(&format!("{}", ch));
         SELECT.append_child(&option);
@@ -321,16 +331,18 @@ fn main() {
     draw_ch(SELECT.value().unwrap(), true, true);
     SELECT.set_raw_value(&SELECT.value().unwrap());
 
-    SEARCH.add_event_listener(|_: ChangeEvent| {
+    SEARCH.add_event_listener(move |_: ChangeEvent| {
         let ch = SEARCH.raw_value();
         if ch.len() == 0 {
             return;
         }
-        SELECT.set_selected_index(Some(
-            CHARS.binary_search(&ch.chars().next().unwrap()).unwrap() as u32,
-        ));
-        draw_ch(ch, true, true);
+        if let Ok(idx) = chars.binary_search(&ch.chars().next().unwrap()){
+            SELECT.set_selected_index(Some(
+                idx as u32,
+            ));
+            draw_ch(ch, true, true);
+        }else{
+            js!(alert("没有这个字!"));
+        }
     });
-
-    stdweb::event_loop();
 }
