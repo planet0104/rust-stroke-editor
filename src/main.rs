@@ -192,6 +192,17 @@ fn gen_map_bzip2() {
     }
 }
 
+//生成map数据
+fn gen_map() {
+    //序列化
+    let data: Vec<u8> = serialize(&*STROKES.lock().unwrap()).unwrap();
+    js!{
+        var url = URL.createObjectURL(new File([new Uint8Array(@{data})], "gb2312.data"));
+        window.open(url);
+        window.URL.revokeObjectURL(url);
+    }
+}
+
 //生成数组
 fn gen_vec() {
     //序列化
@@ -311,6 +322,13 @@ fn start(){
     .unwrap()
     .add_event_listener(|_: ClickEvent| {
         gen_vec();
+    });
+
+    document()
+    .get_element_by_id("gen_map")
+    .unwrap()
+    .add_event_listener(|_: ClickEvent| {
+        gen_map();
     });
 
     // document()
