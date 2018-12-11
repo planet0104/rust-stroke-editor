@@ -58,6 +58,11 @@ lazy_static! {
         .unwrap()
         .try_into()
         .unwrap();
+    static ref ADD: InputElement = document()
+        .get_element_by_id("txt_add")
+        .unwrap()
+        .try_into()
+        .unwrap();
     static ref CHARS: Mutex<Vec<char>> = Mutex::new(vec![]);
     static ref STROKES: Mutex<HashMap<char, Vec<Vec<(u16, u16)>>>> = Mutex::new(HashMap::new());
 }
@@ -281,6 +286,45 @@ fn start(){
         //刷新
         draw_ch(SELECT.value().unwrap(), false, false);
     });
+
+    document()
+        .get_element_by_id("btn_add")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //添加字符
+            let ch = ADD.raw_value();
+            let ch = ch.trim();
+            if ch.len() == 0 {
+                js!(alert("请输入字符!"));
+                return;
+            }
+            let chr = ch.chars().nth(0).unwrap();
+            let mut chars = CHARS.lock().unwrap();
+
+            let idx = if let Ok(idx) = chars.binary_search(&chr){
+                js!(alert("字符已存在!"));
+                idx
+            }else{
+                chars.push(chr);
+                let mut strokes = STROKES.lock().unwrap();
+                strokes.insert(chr,  vec![]);
+
+                //添加所有字符
+                SELECT.set_text_content("");
+                for ch in chars.iter() {
+                    let option = document().create_element("option").unwrap();
+                    option.set_text_content(&format!("{}", ch));
+                    SELECT.append_child(&option);
+                }
+
+                chars.len()-1
+            };
+            //选择对应的字符
+            SELECT.set_selected_index(Some(
+                idx as u32,
+            ));
+            draw_ch(String::from(ch), true, true);
+        });
 
     document()
         .get_element_by_id("btn_replace")
