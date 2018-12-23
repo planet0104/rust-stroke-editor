@@ -6,9 +6,9 @@ extern crate stdweb;
 extern crate bzip2;
 use bzip2::Compression;
 use std::io::prelude::*;
+use std::collections::HashMap;
 
 use bincode::{deserialize, serialize};
-use std::collections::HashMap;
 use std::sync::Mutex;
 use stdweb::unstable::TryInto;
 use stdweb::web::event::*;
@@ -147,6 +147,35 @@ fn draw_strokes(ch: char) {
     }
 }
 
+fn chagne_stroke(op:i32){
+    //替换当前字符
+    let ch = SELECT.value().unwrap().chars().next().unwrap();
+    //获取所有笔画
+    let mut map = STROKES.lock().unwrap();
+    let strokes = map.get_mut(&ch).unwrap();
+    let select_index = SELECT_STROKES.selected_index().unwrap() as usize;
+
+    if op==0{
+        //前移笔画
+        if select_index>0{
+            let before = strokes[select_index-1].clone();
+            strokes[select_index-1] = strokes[select_index].clone();
+            strokes[select_index] = before;
+            draw_ch(SELECT.value().unwrap(), true, true);
+            SELECT_STROKES.set_selected_index(Some(select_index as u32-1));
+        }
+    }else if op==1{
+        //后移笔画
+        if select_index<strokes.len()-1{
+            let after = strokes[select_index+1].clone();
+            strokes[select_index+1] = strokes[select_index].clone();
+            strokes[select_index] = after;
+            draw_ch(SELECT.value().unwrap(), true, true);
+            SELECT_STROKES.set_selected_index(Some(select_index as u32+1));
+        }
+    }
+}
+
 fn change_point(op:i32){
     //替换当前字符
     let ch = SELECT.value().unwrap().chars().next().unwrap();
@@ -160,26 +189,36 @@ fn change_point(op:i32){
         return;
     }
     let mut point_index = SELECT_POINTS.selected_index().unwrap() as usize;
-    if let Some(point) = *POINT.lock().unwrap() {
-        if op == 0{
-            //替换当前点
-            points[point_index] = (point.0 as u16, point.1 as u16);
-        }else if op == 1{
-            //在前边插入点
-            points.insert(point_index, (point.0 as u16, point.1 as u16));
-        }else if op==2{
-            //在后边插入点
-            points.insert(point_index+1, (point.0 as u16, point.1 as u16));
-            point_index += 1;
-        }else if op==3{
-            //删除当前点
-            points.remove(point_index);
+    if op==3{
+        //只有一个点不删除
+        if points.len()==1{
+            js!(alert("只有一个点了!"));
+            return;
         }
-        draw_ch(SELECT.value().unwrap(), false, true);
-        //选中编辑的点
-        SELECT_POINTS.set_selected_index(Some(point_index as u32));
-        draw_ch(SELECT.value().unwrap(), false, false);
+        //删除当前点
+        points.remove(point_index);
+        if point_index==points.len(){
+            point_index -=1;
+        }
+    }else{
+        if let Some(point) = *POINT.lock().unwrap() {
+            if op == 0{
+                //替换当前点
+                points[point_index] = (point.0 as u16, point.1 as u16);
+            }else if op == 1{
+                //在前边插入点
+                points.insert(point_index, (point.0 as u16, point.1 as u16));
+            }else if op==2{
+                //在后边插入点
+                points.insert(point_index+1, (point.0 as u16, point.1 as u16));
+                point_index += 1;
+            }   
+        }
     }
+    draw_ch(SELECT.value().unwrap(), false, true);
+    //选中编辑的点
+    SELECT_POINTS.set_selected_index(Some(point_index as u32));
+    draw_ch(SELECT.value().unwrap(), false, false);
 }
 
 //生成压缩数据
@@ -242,6 +281,34 @@ fn main() {
             for (ch, _strokes) in &strokes {
                 chars.push(*ch);
             }
+
+            //检查是否有不存在的字
+            //let articls: HashMap<String, String> = deserialize(&ARTICLS).unwrap();
+            // let poems: HashMap<String, String> = deserialize(&POEMS).unwrap();
+
+            // for (_title, content) in &poems {
+            //     for ch in content.chars(){
+            //         match ch {
+            //             '—' => continue,
+            //             '。' => continue,
+            //             '，' => continue,
+            //             '；' => continue,
+            //             '”' => continue,
+            //             '“' => continue,
+            //             '‘' => continue,
+            //             '’' => continue,
+            //             '！' => continue,
+            //             '：' => continue,
+            //             '？' => continue,
+            //             '!'|'0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|']'|'['|'、'|','|':'|'…'|'·'|'《'|'》'|'?'|'`'|'"'|' '|'［'|'］' => continue,
+            //             _ => (),
+            //         }
+            //         if !chars.contains(&ch){
+            //             js!(console.log("没有文字:", @{format!("{}", ch)}));
+            //         }
+            //     }
+            // }
+
             *CHARS.lock().unwrap() = chars;
 
             let mut map = HashMap::new();
@@ -307,7 +374,7 @@ fn start(){
             }else{
                 chars.push(chr);
                 let mut strokes = STROKES.lock().unwrap();
-                strokes.insert(chr,  vec![]);
+                strokes.insert(chr,  vec![vec![(50,50)]]);
 
                 //添加所有字符
                 SELECT.set_text_content("");
@@ -352,6 +419,35 @@ fn start(){
         .unwrap()
         .add_event_listener(|_: ClickEvent| {
             change_point(3);
+        });
+
+    document()
+        .get_element_by_id("btn_add_stroke")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //添加一笔
+            let ch = SELECT.value().unwrap();
+            let key = ch.chars().next().unwrap();
+            let mut map = STROKES.lock().unwrap();
+            let strokes = map.get_mut(&key).unwrap();
+            strokes.push(vec![(50,50)]);
+            draw_ch(String::from(ch), true, true);
+        });
+
+    document()
+        .get_element_by_id("btn_move_forward")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //前移笔画
+            chagne_stroke(0);
+        });
+
+    document()
+        .get_element_by_id("btn_move_backward")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //后移笔画
+            chagne_stroke(1);
         });
 
     document()
