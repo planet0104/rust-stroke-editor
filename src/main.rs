@@ -313,9 +313,17 @@ fn main() {
             let data:Vec<u8> = Vec::from(array_buffer);
             let strokes: Vec<(char, Vec<Vec<(u16, u16)>>)> = deserialize(&data).unwrap();
             js!(console.log("字符个数", @{strokes.len() as i32}));
+
+            let mut count_map = HashMap::new();
+
             let mut chars = vec![];
             for (ch, _strokes) in &strokes {
                 chars.push(*ch);
+                if count_map.contains_key(ch){
+                    *count_map.get_mut(ch).unwrap() += 1;
+                }else{
+                    count_map.insert(*ch, 1);
+                }
             }
 
             //检查是否有不存在的字
