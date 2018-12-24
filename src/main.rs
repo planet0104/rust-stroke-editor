@@ -147,7 +147,7 @@ fn draw_strokes(ch: char) {
     }
 }
 
-fn chagne_stroke(op:i32){
+fn chagne_stroke(op:i32, val:Option<i32>){
     //替换当前字符
     let ch = SELECT.value().unwrap().chars().next().unwrap();
     //获取所有笔画
@@ -161,8 +161,10 @@ fn chagne_stroke(op:i32){
             let before = strokes[select_index-1].clone();
             strokes[select_index-1] = strokes[select_index].clone();
             strokes[select_index] = before;
-            draw_ch(SELECT.value().unwrap(), true, true);
             SELECT_STROKES.set_selected_index(Some(select_index as u32-1));
+            draw_ch(SELECT.value().unwrap(), false, true);
+        }else{
+            js!(alert("已经是第一笔了!"));
         }
     }else if op==1{
         //后移笔画
@@ -170,9 +172,43 @@ fn chagne_stroke(op:i32){
             let after = strokes[select_index+1].clone();
             strokes[select_index+1] = strokes[select_index].clone();
             strokes[select_index] = after;
-            draw_ch(SELECT.value().unwrap(), true, true);
+            SELECT_STROKES.set_selected_index(Some(select_index as u32+1));
+            draw_ch(SELECT.value().unwrap(), false, true);
+        }else{
+            js!(alert("已经到最后一笔了!"));
+        }
+    }else if op==2 || op ==3{
+        //（当前）两笔/三笔后移
+        let count = op as usize;
+        let index = select_index;
+
+        if strokes.len()<=count || strokes.len()-index<count{
+            js!(alert("长度不够！"));
+            return;
+        }
+        if strokes.len()-index==count{
+            js!(alert("已经到最后了！"));
+            return;
+        }
+
+        let mut insert_index = index+1;
+        if val.is_some(){
+            //移动到最后
+            insert_index = strokes.len()-count;  
+        }
+
+        //删除当前N笔
+        let movestrokes:Vec<Vec<(u16, u16)>> = strokes.splice(index..index+count, [].iter().cloned()).collect();
+        //重新插入N笔
+        for s in movestrokes.iter().rev(){
+            strokes.insert(insert_index, s.clone());
+        }
+        if val.is_some(){
+            SELECT_STROKES.set_selected_index(Some(insert_index as u32));
+        }else{
             SELECT_STROKES.set_selected_index(Some(select_index as u32+1));
         }
+        draw_ch(SELECT.value().unwrap(), false, true);
     }
 }
 
@@ -433,13 +469,26 @@ fn start(){
             strokes.push(vec![(50,50)]);
             draw_ch(String::from(ch), true, true);
         });
+    
+    document()
+        .get_element_by_id("btn_delete_stroke")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //删除一笔
+            let ch = SELECT.value().unwrap().chars().next().unwrap();;
+            let mut map = STROKES.lock().unwrap();
+            let strokes = map.get_mut(&ch).unwrap();
+            let select_index = SELECT_STROKES.selected_index().unwrap() as usize;
+            strokes.remove(select_index);
+            draw_ch(format!("{}", ch), true, true);
+        });
 
     document()
         .get_element_by_id("btn_move_forward")
         .unwrap()
         .add_event_listener(|_: ClickEvent| {
             //前移笔画
-            chagne_stroke(0);
+            chagne_stroke(0, None);
         });
 
     document()
@@ -447,7 +496,39 @@ fn start(){
         .unwrap()
         .add_event_listener(|_: ClickEvent| {
             //后移笔画
-            chagne_stroke(1);
+            chagne_stroke(1, None);
+        });
+
+    document()
+        .get_element_by_id("btn_move_backward2")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //后移2笔
+            chagne_stroke(2, None);
+        });
+
+    document()
+        .get_element_by_id("btn_move_backward4")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //2笔移动到最后
+            chagne_stroke(2, Some(0));
+        });
+
+    document()
+        .get_element_by_id("btn_move_backward3")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //后移3笔
+            chagne_stroke(3, None);
+        });
+
+    document()
+        .get_element_by_id("btn_move_backward5")
+        .unwrap()
+        .add_event_listener(|_: ClickEvent| {
+            //3笔移动到最后
+            chagne_stroke(3, Some(0));
         });
 
     document()
