@@ -1,2 +1,8 @@
-cargo build --target asmjs-unknown-emscripten --release
-copy target\asmjs-unknown-emscripten\release\rust-stroke-editor.js html\rust-stroke-editor.js
+::
+wasm-pack build --target web
+copy pkg\rust_stroke_editor_bg.wasm html\rust_stroke_editor_bg.wasm
+copy pkg\rust_stroke_editor.js html\rust_stroke_editor.js
+
+::npm install http-server -g
+::cd html
+::http-server -p 3000 --cors
