@@ -2,6 +2,12 @@
 
 [数据库以及代码参考源自https://github.com/huzheng001/stroke-editor](https://github.com/huzheng001/stroke-editor)
 
-[在线演示](https://planet0104.github.io/rust-stroke-editor/html/index.html)  
+运行:
+
+```cmd
+npm install http-server -g
+cd html
+http-server -p 3000 --cors
+```
 
 ![截图](shot1.png)
